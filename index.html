@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title data-i18n="title">Віїзі - Віртуальний Помічник</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-cyan: #00f2ff;
+            --neon-purple: #bf00ff;
+            --dialog-neon: #ff00ff;
+            --glass-bg: rgba(20, 30, 50, 0.6);
+            --glass-border: rgba(0, 242, 255, 0.35);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: #0a0f1a;
+            color: #fff;
+            overflow-x: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #css-bg {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: 
+                repeating-linear-gradient(0deg, rgba(0, 242, 255, 0.05) 0px, rgba(0, 242, 255, 0.05) 1px, transparent 1px, transparent 60px),
+                repeating-linear-gradient(90deg, rgba(0, 242, 255, 0.05) 0px, rgba(0, 242, 255, 0.05) 1px, transparent 1px, transparent 60px);
+            z-index: -2;
+        }
+
+        /* Video Backgrounds */
+        #bg-video, #transition-video {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            object-fit: cover;
+            z-index: 0;
+            display: none;
+        }
+        #transition-video { z-index: 9999; }
+
+        /* Pages */
+        .page {
+            position: relative;
+            z-index: 10;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: none;
+            padding-bottom: 250px;
+        }
+        .page.active { display: block; animation: fadeIn 1s; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* GlassHUD Styles */
+        body[data-opacity="0"] .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            opacity: 1;
+        }
+        body[data-opacity="1"] .glass-card {
+            background: rgba(20, 30, 50, 0.15);
+            backdrop-filter: blur(5px);
+            opacity: 1;
+        }
+        body[data-opacity="2"] .glass-card {
+            opacity: 0.1;
+            pointer-events: none;
+        }
+
+        .glass-card {
+            border: 2px solid var(--neon-cyan);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 0 15px var(--neon-cyan);
+            transition: border-color 1.5s ease, box-shadow 1.5s ease, opacity 0.5s ease, background 0.5s ease, backdrop-filter 0.5s ease;
+        }
+        
+        h1, h2, h3 { font-family: 'Orbitron', sans-serif; color: var(--neon-cyan); margin-bottom: 1rem; transition: color 1.5s ease; }
+        p { line-height: 1.6; margin-bottom: 1rem; color: #e0e0e0; }
+        ul { margin-left: 20px; margin-bottom: 1rem; color: #e0e0e0; line-height: 1.6; }
+
+        /* Code Frame */
+        .code-frame {
+            background: rgba(5, 10, 21, 0.8);
+            border: 2px solid var(--neon-purple);
+            border-radius: 10px;
+            margin: 1.5rem 0;
+            overflow: hidden;
+            box-shadow: 0 0 15px var(--neon-purple);
+            transition: border-color 1.5s ease, box-shadow 1.5s ease;
+        }
+        .code-header {
+            background: rgba(191, 0, 255, 0.2);
+            padding: 0.5rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--neon-purple);
+            transition: border-color 1.5s ease;
+        }
+        .code-header button {
+            background: transparent;
+            color: var(--neon-cyan);
+            border: 1px solid var(--neon-cyan);
+            padding: 5px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s;
+        }
+        .code-header button:hover { background: var(--neon-cyan); color: #000; }
+        .code-frame pre {
+            padding: 1rem;
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--neon-cyan);
+            transition: color 1.5s ease;
+        }
+
+        /* VRM Canvas */
+        #vrm-container {
+            position: fixed;
+            bottom: -50px;
+            right: 5%;
+            width: 400px;
+            height: 600px;
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
+        #vrm-container.page3-mode {
+            right: 50%;
+            transform: translateX(50%);
+            bottom: 0;
+        }
+        #vrm-canvas { width: 100%; height: 100%; pointer-events: auto; }
+
+        @media (max-width: 768px) {
+            #vrm-container { right: 50%; transform: translateX(50%); bottom: -20px; width: 300px; height: 450px; }
+            .page { padding: 1rem; padding-bottom: 400px; }
+        }
+        @media (max-width: 900px) and (orientation: landscape) {
+            #vrm-container {
+                right: -30px;
+                bottom: -80px;
+                transform: none;
+                width: 250px;
+                height: 380px;
+            }
+            .page { padding-bottom: 2rem; max-width: calc(100% - 200px); margin: 0; }
+            #vrm-container.page3-mode {
+                right: 50%;
+                transform: translateX(50%);
+                bottom: -20px;
+            }
+        }
+
+        /* Speech Bubbles */
+        #bubbles-container {
+            position: fixed;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            gap: 15px;
+            z-index: 1000;
+            pointer-events: auto;
+            align-items: center;
+        }
+        .comic-bubble {
+            background: rgba(10, 15, 25, 0.9);
+            border: 3px solid var(--dialog-neon);
+            border-radius: 40px;
+            padding: 15px 25px;
+            color: #fff;
+            font-weight: 800;
+            font-size: 1.1rem;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s, border-color 1.5s ease, box-shadow 1.5s ease;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px var(--dialog-neon);
+        }
+        .comic-bubble:hover { transform: scale(1.05); }
+        .flag-bubble {
+            padding: 8px 15px;
+            font-size: 1.5rem;
+            border-radius: 30px;
+        }
+
+        #vrm-dialog-wrapper {
+            position: fixed;
+            top: 20%;
+            right: calc(5% + 420px);
+            z-index: 1000;
+            pointer-events: none;
+            display: none;
+        }
+        #vrm-dialog-wrapper.page3-mode {
+            right: 50%; transform: translateX(50%); top: 20%;
+        }
+        
+        @media (max-width: 1200px) {
+            #vrm-dialog-wrapper {
+                right: 20px;
+                top: 20px;
+            }
+        }
+        @media (max-width: 768px) {
+            #vrm-dialog-wrapper { right: 50%; transform: translateX(50%); top: 80px; }
+            #vrm-dialog-wrapper.page3-mode { top: 80px; }
+            #bubbles-container { top: 70px; }
+        }
+        @media (max-width: 900px) and (orientation: landscape) {
+            #vrm-dialog-wrapper {
+                right: 50%;
+                transform: translateX(50%);
+                top: 20px;
+            }
+            #bubbles-container { top: 20px; }
+        }
+        
+        .dialog-toggle-btn {
+            background: rgba(10, 18, 35, 0.95);
+            border: 2px solid var(--dialog-neon);
+            color: var(--dialog-neon);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            margin-bottom: 10px;
+            pointer-events: auto;
+            box-shadow: 0 0 15px var(--dialog-neon);
+            transition: border-color 1.5s ease, color 1.5s ease, box-shadow 1.5s ease;
+        }
+        
+        #vrm-dialog {
+            width: 320px;
+            background: rgba(10, 18, 35, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid var(--dialog-neon);
+            border-radius: 20px;
+            padding: 20px;
+            pointer-events: auto;
+            box-shadow: 0 0 15px var(--dialog-neon);
+            transition: border-color 1.5s ease, box-shadow 1.5s ease;
+        }
+        .dialog-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--dialog-neon);
+            padding-bottom: 10px;
+            transition: border-color 1.5s ease;
+        }
+        .dialog-header span {
+            color: var(--dialog-neon);
+            font-family: 'Orbitron', sans-serif;
+            font-weight: bold;
+            transition: color 1.5s ease;
+        }
+        .dialog-minimize {
+            background: none;
+            border: none;
+            color: var(--dialog-neon);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: color 1.5s ease;
+        }
+        .dialog-btn {
+            display: block;
+            width: 100%;
+            background: rgba(0, 242, 255, 0.1);
+            border: 1px solid var(--dialog-neon);
+            color: var(--dialog-neon);
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s, border-color 1.5s ease, color 1.5s ease;
+        }
+        .dialog-btn:hover { background: var(--dialog-neon); color: #000; }
+
+        #wish-form { margin-top: 15px; display: none; }
+        #wish-form input, #wish-form textarea {
+            width: 100%;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--glass-border);
+            color: #fff;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            font-family: inherit;
+            box-sizing: border-box; /* Fix overflow */
+        }
+        #wish-form textarea { resize: vertical; min-height: 80px; }
+        
+        #opacity-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(10, 18, 35, 0.8);
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-cyan);
+            transition: all 0.3s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #opacity-toggle:hover {
+            background: var(--neon-cyan);
+            color: #000;
+        }
+        
+        /* Custom Alert Dialog */
+        #custom-alert-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.8); z-index: 10000;
+            display: none; justify-content: center; align-items: center;
+        }
+        .custom-alert {
+            background: rgba(10, 18, 35, 0.95); border: 2px solid var(--neon-cyan);
+            border-radius: 20px; padding: 25px; min-width: 300px;
+            box-shadow: 0 0 20px var(--neon-cyan); text-align: center;
+        }
+        .custom-alert p { color: #fff; font-size: 1.1rem; margin-bottom: 20px; font-weight: bold; }
+        .custom-alert button { width: 100px; margin: 0 auto; }
+    </style>
+    <!-- Import Maps for Three.js and VRM -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.164.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.164.0/examples/jsm/",
+        "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@3.0.0/lib/three-vrm.module.js",
+        "@pixiv/three-vrm-animation": "https://unpkg.com/@pixiv/three-vrm-animation@3.0.0/lib/three-vrm-animation.module.js"
+      }
+    }
+    </script>
+</head>
+<body data-opacity="0">
+    <button id="opacity-toggle" onclick="toggleGlassOpacity()" title="Змінити прозорість" data-i18n-title="opacity_toggle">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+    </button>
+    <div id="css-bg"></div>
+    <video id="bg-video" loop muted playsinline></video>
+    <video id="transition-video" muted playsinline></video>
+
+    <!-- Custom Alert -->
+    <div id="custom-alert-overlay">
+        <div class="custom-alert">
+            <p id="custom-alert-text">Alert</p>
+            <button class="dialog-btn" onclick="closeCustomAlert()">OK</button>
+        </div>
+    </div>
+
+    <!-- PAGE 1 -->
+    <div id="page-1" class="page active">
+        <div class="glass-card">
+            <h1 data-i18n="p1_h1">Проєкт: Експериментальний майданчик</h1>
+            <p data-i18n="p1_sub">«Цей проєкт створено для тестування ідей та створення гарного настрою».</p>
+            <p data-i18n="p1_p1">Цей проєкт — мій експериментальний майданчик для тестування інтерактивних ідей, 3D-технологій та веб-магії. Головна мета — створювати цікаві речі та дарувати гарний настрій. Тут я тестую нові 3D-технології, нестандартні веб-ідеї та створюю лампову атмосферу.</p>
+        </div>
+        
+        <div class="glass-card">
+            <h2 data-i18n="p1_h2">Про проєкт:</h2>
+            <p data-i18n="p1_p2">Привіт! Я розробник. Цей сайт — некомерційний експеримент, який розміщений на GitHub. Тут немає реклами чи обов'язкових підписок. Якщо те, що ти тут бачиш, викликало в тебе посмішку, здивувало або просто сподобалося — ти можеш підтримати проєкт та залишити свій власний слід у його історії!</p>
+            <p data-i18n="p1_p3">Мене звати Дмитро, і я — з України.</p>
+            <p data-i18n="p1_p4">Поки світ стрімко змінюється, моя реальність — це щоденний шлях крізь виклики та спроба побудувати своє життя заново. Попри всі складні обставини, в яких опинилося моє рідне місто, я обираю рухатися вперед, вчитися та створювати нове через технології.</p>
+            <p data-i18n="p1_p5">Цей проєкт — мій спосіб не здаватися, а створювати щось світле навіть у найтемніші часи. Кожен промінь вашої підтримки — це не просто допомога, це маяк надії та точка опори, яка дає мені можливість жити, розвиватися та йти далі.</p>
+            <p data-i18n="p1_p6"><strong>Дякую кожному, хто стає частиною моєї історії! 💙💛</strong></p>
+        </div>
+    </div>
+
+    <!-- PAGE 2 -->
+    <div id="page-2" class="page">
+        <div class="glass-card">
+            <h2 data-i18n="p2_h2">🛠️ Як влаштований цей проєкт: Від ідеї до 3D-анімацій</h2>
+            <p data-i18n="p2_p1">Цей сайт — не просто статична сторінка, а справжнє цифрове експериментальне поле. Тут поєднуються сучасні веб-технології, штучний інтелект та робота з 3D-графікою у форматі <strong>VRM / VRMA</strong>.</p>
+            
+            <h3 data-i18n="p2_h3">🤖 Штучний інтелект як головний співавтор</h3>
+            <p data-i18n="p2_p2">Під час розробки цього проєкту я активно використовував передові нейромережі: Gemini, Claude та DeepSeek допомагали проєктувати архітектуру коду, писати скрипти, оптимізувати анімації та створювати математичні розрахунки (кватерніони) для обертання 3D-кісток.</p>
+            
+            <h3 data-i18n="p2_h4">🎨 3D-модель персонажа «Beal»</h3>
+            <p data-i18n="p2_p3">Основний персонаж проєкту створений у додатку VRoid Mobile.</p>
+            <ul>
+                <li data-i18n="p2_li1">Метадані моделі: назва — «Beal», автор — Dmytro, версія — VRM 0.x</li>
+                <li data-i18n="p2_li2">Список кісток: присутні всі 55 стандартних кісток.</li>
+                <li data-i18n="p2_li3">Список виразів обличчя: 15 груп (Нейтрально, Голосні, Емоції тощо).</li>
+            </ul>
+
+            <h3 data-i18n="p2_h5">⚙️ Власний конвертер анімацій: json_to_vrma.py</h3>
+            <p data-i18n="p2_p4">Щоб не залежати від складних програм, було створено спеціальний Python-скрипт.</p>
+
+            <div class="code-frame">
+                <div class="code-header">
+                    <span>json_to_vrma.py</span>
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('python-code').innerText)" data-i18n="btn_copy">Копіювати</button>
+                </div>
+                <pre><code id="python-code">#!/usr/bin/env python3
+"""
+json_to_vrma.py (v2 — кости + мимика)
+Конвертирует JSON с ключевыми кадрами в бинарный .vrma
+"""
+import sys
+import json
+import struct
+from pygltflib import (
+    GLTF2, Asset, Scene, Node, Animation, AnimationSampler, AnimationChannel,
+    AnimationChannelTarget, Buffer, BufferView, Accessor,
+    FLOAT, SCALAR, VEC3, VEC4
+)
+
+VRM_SPEC_VERSION = "1.0"
+# (Повний код скрипта скорочено для демонстрації, скопіюйте повну версію з оригіналу)
+def main():
+    print("Converter started...")
+    # ...
+if __name__ == "__main__":
+    main()
+</code></pre>
+            </div>
+
+            <h3 data-i18n="p2_h6">📱 Як створити та оживити власну 3D-анімацію</h3>
+            <div class="code-frame">
+                <div class="code-header">
+                    <span>Termux Commands</span>
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('termux-code').innerText)" data-i18n="btn_copy">Копіювати</button>
+                </div>
+                <pre><code id="termux-code">pkg install python
+pip install pygltflib
+nano dance.json
+python json_to_vrma.py dance.json dance.vrma</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE 3 -->
+    <div id="page-3" class="page">
+        <!-- Background video only -->
+    </div>
+
+    <div id="bubbles-container">
+        <div class="comic-bubble flag-bubble" onclick="selectLanguage('uk')">🇺🇦</div>
+        <div class="comic-bubble center-bubble">Виберіть мову<br>Choose language</div>
+        <div class="comic-bubble flag-bubble" onclick="selectLanguage('en')">🇬🇧</div>
+    </div>
+
+    <div id="vrm-dialog-wrapper">
+        <button class="dialog-toggle-btn" id="dialog-toggle-btn" onclick="toggleDialog()" style="display:none;" data-i18n="dialog_toggle">[ Розгорнути діалог ]</button>
+        <div id="vrm-dialog">
+            <div class="dialog-header">
+                <span>DIALOG SYSTEM</span>
+                <button class="dialog-minimize" onclick="toggleDialog()">—</button>
+            </div>
+            <p id="dialog-text" style="color: #fff; font-weight: bold; margin-bottom: 15px; text-align: center; font-size: 0.9rem; line-height: 1.5;"></p>
+            <div id="dialog-options"></div>
+            
+            <div id="wish-form">
+                <input type="email" id="wish-email" placeholder="Ваш Email..." data-i18n-placeholder="wish_email" />
+                <textarea id="wish-text" placeholder="Залишити побажання Дмитру..." data-i18n-placeholder="wish_text"></textarea>
+                <button class="dialog-btn" id="wish-btn-send" onclick="sendWish()" data-i18n="wish_send">Відправити</button>
+                <button class="dialog-btn" onclick="closeWishForm()" style="border-color: #ff0055; color: #ff0055; background: rgba(255,0,85,0.1);" data-i18n="wish_cancel">Відміна</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="vrm-container">
+        <canvas id="vrm-canvas"></canvas>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import * as THREE_VRM from '@pixiv/three-vrm';
+        import * as THREE_VRM_ANIMATION from '@pixiv/three-vrm-animation';
+
+        // --- Custom Alert System ---
+        window.showCustomAlert = (msg) => {
+            document.getElementById('custom-alert-text').innerText = msg;
+            document.getElementById('custom-alert-overlay').style.display = 'flex';
+        };
+        window.closeCustomAlert = () => {
+            document.getElementById('custom-alert-overlay').style.display = 'none';
+        };
+
+        // --- i18n Dictionary ---
+        const i18n = {
+            uk: {
+                title: "Віїзі - Віртуальний Помічник",
+                p1_h1: "Проєкт: Експериментальний майданчик",
+                p1_sub: "«Цей проєкт створено для тестування ідей та створення гарного настрою».",
+                p1_p1: "Цей проєкт — мій експериментальний майданчик для тестування інтерактивних ідей, 3D-технологій та веб-магії. Головна мета — створювати цікаві речі та дарувати гарний настрій. Тут я тестую нові 3D-технології, нестандартні веб-ідеї та створюю лампову атмосферу.",
+                p1_h2: "Про проєкт:",
+                p1_p2: "Привіт! Я розробник. Цей сайт — некомерційний експеримент, який розміщений на GitHub. Тут немає реклами чи обов'язкових підписок. Якщо те, що ти тут бачиш, викликало в тебе посмішку, здивувало або просто сподобалося — ти можеш підтримати проєкт та залишити свій власний слід у його історії!",
+                p1_p3: "Мене звати Дмитро, і я — з України.",
+                p1_p4: "Поки світ стрімко змінюється, моя реальність — це щоденний шлях крізь виклики та спроба побудувати своє життя заново. Попри всі складні обставини, в яких опинилося моє рідне місто, я обираю рухатися вперед, вчитися та створювати нове через технології.",
+                p1_p5: "Цей проєкт — мій спосіб не здаватися, а створювати щось світле навіть у найтемніші часи. Кожен промінь вашої підтримки — це не просто допомога, це маяк надії та точка опори, яка дає мені можливість жити, розвиватися та йти далі.",
+                p1_p6: "<strong>Дякую кожному, хто стає частиною моєї історії! 💙💛</strong>",
+                
+                p2_h2: "🛠️ Як влаштований цей проєкт: Від ідеї до 3D-анімацій",
+                p2_p1: "Цей сайт — не просто статична сторінка, а справжнє цифрове експериментальне поле. Тут поєднуються сучасні веб-технології, штучний інтелект та робота з 3D-графікою у форматі <strong>VRM / VRMA</strong>.",
+                p2_h3: "🤖 Штучний інтелект як головний співавтор",
+                p2_p2: "Під час розробки цього проєкту я активно використовував передові нейромережі: Gemini, Claude та DeepSeek допомагали проєктувати архітектуру коду, писати скрипти, оптимізувати анімації та створювати математичні розрахунки (кватерніони) для обертання 3D-кісток.",
+                
+                p2_h4: "🎨 3D-модель персонажа «Beal»",
+                p2_p3: "Основний персонаж проєкту створений у додатку VRoid Mobile.",
+                p2_li1: "Метадані моделі: назва — «Beal», автор — Dmytro, версія — VRM 0.x",
+                p2_li2: "Список кісток: присутні всі 55 стандартних кісток.",
+                p2_li3: "Список виразів обличчя: 15 груп (Нейтрально, Голосні, Емоції тощо).",
+                
+                p2_h5: "⚙️ Власний конвертер анімацій: json_to_vrma.py",
+                p2_p4: "Щоб не залежати від складних програм, було створено спеціальний Python-скрипт.",
+                p2_h6: "📱 Як створити та оживити власну 3D-анімацію",
+                
+                dialog_toggle: "[ Розгорнути діалог ]",
+                btn_copy: "Копіювати",
+                wish_email: "Ваш Email...",
+                wish_text: "Залишити побажання Дмитру...",
+                wish_send: "Відправити",
+                wish_cancel: "Відміна",
+                
+                alert_fill: "Будь ласка, заповніть всі поля.",
+                alert_sending: "Відправка...",
+                alert_success: "Дякуємо! Повідомлення відправлено.",
+                alert_error: "Помилка відправки.",
+                alert_network: "Помилка мережі.",
+                opacity_toggle: "Змінити прозорість"
+            },
+            en: {
+                title: "Veezi - Virtual Assistant",
+                p1_h1: "Project: Experimental Playground",
+                p1_sub: "\"This project was created to test ideas and create a good mood.\"",
+                p1_p1: "This project is my experimental playground for testing interactive ideas, 3D technologies, and web magic. The main goal is to create interesting things and bring a good mood. Here I test new 3D technologies, non-standard web ideas, and create a cozy atmosphere.",
+                p1_h2: "About the project:",
+                p1_p2: "Hello! I am a developer. This site is a non-commercial experiment hosted on GitHub. There are no ads or mandatory subscriptions. If what you see here made you smile, surprised you, or you just liked it, you can support the project and leave your own mark in its history!",
+                p1_p3: "My name is Dmytro, and I am from Ukraine.",
+                p1_p4: "As the world changes rapidly, my reality is a daily path through challenges and an attempt to rebuild my life. Despite all the difficult circumstances my hometown has found itself in, I choose to move forward, learn, and create new things through technology.",
+                p1_p5: "This project is my way of not giving up, but creating something bright even in the darkest times. Every ray of your support is not just help; it is a beacon of hope and a foothold that gives me the opportunity to live, develop, and move on.",
+                p1_p6: "<strong>Thank you to everyone who becomes a part of my story! 💙💛</strong>",
+                
+                p2_h2: "🛠️ How this project works: From idea to 3D animations",
+                p2_p1: "This site is not just a static page, but a real digital experimental field. It combines modern web technologies, artificial intelligence, and working with 3D graphics in <strong>VRM / VRMA</strong> format.",
+                p2_h3: "🤖 Artificial intelligence as the main co-author",
+                p2_p2: "During the development of this project, I actively used advanced neural networks: Gemini, Claude, and DeepSeek helped design the code architecture, write scripts, optimize animations, and create mathematical calculations (quaternions) for rotating 3D bones.",
+                
+                p2_h4: "🎨 3D model of character «Beal»",
+                p2_p3: "The main character of the project was created in VRoid Mobile.",
+                p2_li1: "Model metadata: name — «Beal», author — Dmytro, version — VRM 0.x",
+                p2_li2: "Bone list: all 55 standard bones are present.",
+                p2_li3: "Facial expressions: 15 groups (Neutral, Vowels, Emotions, etc.).",
+                
+                p2_h5: "⚙️ Custom animation converter: json_to_vrma.py",
+                p2_p4: "To avoid depending on complex software, a special Python script was created.",
+                p2_h6: "📱 How to create and animate your own 3D animation",
+                
+                dialog_toggle: "[ Expand Dialog ]",
+                btn_copy: "Copy",
+                wish_email: "Your Email...",
+                wish_text: "Leave a wish for Dmytro...",
+                wish_send: "Send",
+                wish_cancel: "Cancel",
+                
+                alert_fill: "Please fill out all fields.",
+                alert_sending: "Sending...",
+                alert_success: "Thank you! Message sent.",
+                alert_error: "Sending error.",
+                alert_network: "Network error.",
+                opacity_toggle: "Change transparency"
+            }
+        };
+
+        function updatePageLanguage(lang) {
+            const t = i18n[lang];
+            if (!t) return;
+            
+            document.title = t.title;
+            document.documentElement.lang = lang;
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) {
+                    el.innerHTML = t[key];
+                }
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (t[key]) {
+                    el.placeholder = t[key];
+                }
+            });
+            document.querySelectorAll('[data-i18n-title]').forEach(el => {
+                const key = el.getAttribute('data-i18n-title');
+                if (t[key]) {
+                    el.title = t[key];
+                }
+            });
+        }
+
+        let currentOpacityLevel = 0;
+        window.toggleGlassOpacity = () => {
+            currentOpacityLevel = (currentOpacityLevel + 1) % 3;
+            document.body.setAttribute('data-opacity', currentOpacityLevel);
+        };
+
+        // --- Color Cycler Logic ---
+        const siteColors = ['#00f2ff', '#bf00ff', '#00ff66', '#ff0055', '#ffff00'];
+        const dialogColors = ['#ff00ff', '#00ffff', '#ffff00', '#ff0055', '#00ff66'];
+        
+        let siteColorIndex = 0;
+        let dialogColorIndex = 0;
+
+        // Cycle site colors independently
+        setInterval(() => {
+            siteColorIndex = (siteColorIndex + 1) % siteColors.length;
+            const nextCyan = siteColors[siteColorIndex];
+            const nextPurple = siteColors[(siteColorIndex + 2) % siteColors.length];
+            document.documentElement.style.setProperty('--neon-cyan', nextCyan);
+            document.documentElement.style.setProperty('--neon-purple', nextPurple);
+        }, 4000);
+
+        // Cycle dialog border colors asynchronously
+        setInterval(() => {
+            dialogColorIndex = (dialogColorIndex + 1) % dialogColors.length;
+            const nextDialogColor = dialogColors[dialogColorIndex];
+            document.documentElement.style.setProperty('--dialog-neon', nextDialogColor);
+        }, 2500);
+
+        let scene, camera, renderer, currentVrm, mixer, clock;
+        let audioCtx, analyser;
+        let bgAudio;
+        let currentAudio = null;
+        let activeLanguage = 'uk';
+        let isTransitioning = false;
+        let currentAudioSeqId = 0;
+        
+        const FORMBOLD_URL = "https://formbold.com/s/oyA5r";
+
+        const bubblesContainer = document.getElementById('bubbles-container');
+        const vrmContainer = document.getElementById('vrm-container');
+        const dialogWrapper = document.getElementById('vrm-dialog-wrapper');
+        const dialogWindow = document.getElementById('vrm-dialog');
+        const dialogToggleBtn = document.getElementById('dialog-toggle-btn');
+        const dialogText = document.getElementById('dialog-text');
+        const dialogOptions = document.getElementById('dialog-options');
+        const overlayVideo = document.getElementById('transition-video');
+        const bgVideo = document.getElementById('bg-video');
+
+        let currentAction = null; // Fix for Memory Leak
+
+        initThree();
+        
+        // Show page 1 immediately, then load VRM
+        setTimeout(() => {
+            vrmContainer.style.opacity = 1;
+            setTimeout(() => {
+                bubblesContainer.style.display = 'flex';
+            }, 1000);
+        }, 1500);
+
+        function initThree() {
+            const canvas = document.getElementById('vrm-canvas');
+            renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+            renderer.setSize(400, 600);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(30, 400 / 600, 0.1, 20);
+            camera.position.set(0, 1.3, 2.5);
+
+            const light = new THREE.DirectionalLight(0xffffff, 1.5);
+            light.position.set(1, 1, 1).normalize();
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+            clock = new THREE.Clock();
+
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+
+            const loader = new GLTFLoader();
+            loader.register((parser) => new THREE_VRM.VRMLoaderPlugin(parser));
+            
+            loader.load(
+                'Beal.vrm',
+                (gltf) => {
+                    currentVrm = gltf.userData.vrm;
+                    scene.add(currentVrm.scene);
+                    
+                    const leftShoulder = currentVrm.humanoid.getRawBoneNode('leftShoulder');
+                    const rightShoulder = currentVrm.humanoid.getRawBoneNode('rightShoulder');
+                    const leftUpperArm = currentVrm.humanoid.getRawBoneNode('leftUpperArm');
+                    const rightUpperArm = currentVrm.humanoid.getRawBoneNode('rightUpperArm');
+                    
+                    if(leftShoulder) leftShoulder.rotation.z = 0.2;
+                    if(rightShoulder) rightShoulder.rotation.z = -0.2;
+                    if(leftUpperArm) leftUpperArm.rotation.z = 0.3;
+                    if(rightUpperArm) rightUpperArm.rotation.z = -0.3;
+
+                    mixer = new THREE.AnimationMixer(currentVrm.scene);
+                },
+                undefined,
+                (error) => console.warn('VRM not found, continuing...')
+            );
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            if (currentVrm) {
+                currentVrm.update(delta);
+                updateLipSync();
+            }
+            if (mixer) mixer.update(delta);
+            renderer.render(scene, camera);
+        }
+
+        function updateLipSync() {
+            if (!currentAudio || currentAudio.paused || !analyser) {
+                if (currentVrm && currentVrm.expressionManager) {
+                    currentVrm.expressionManager.setValue('aa', 0);
+                    currentVrm.expressionManager.update();
+                }
+                return;
+            }
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            let volume = (sum / dataArray.length) / 50.0;
+            volume = Math.min(1, Math.max(0, volume - 0.1));
+            
+            if (currentVrm && currentVrm.expressionManager) {
+                currentVrm.expressionManager.setValue('aa', volume);
+                currentVrm.expressionManager.update();
+            }
+        }
+
+        bgAudio = new Audio('track1.mp3');
+        bgAudio.loop = true;
+        bgAudio.volume = 0.10;
+
+        const speechAudio = new Audio();
+        speechAudio.crossOrigin = "anonymous";
+        let speechSourceConnected = false;
+
+        function playAudioSequence(files, onComplete) {
+            const seqId = ++currentAudioSeqId;
+            const playNext = () => {
+                if (seqId !== currentAudioSeqId) return;
+                if (files.length === 0) {
+                    currentAudio = null;
+                    if (onComplete) onComplete();
+                    return;
+                }
+                const file = files.shift();
+                
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                
+                if (!speechSourceConnected) {
+                    try {
+                        const source = audioCtx.createMediaElementSource(speechAudio);
+                        source.connect(analyser);
+                        analyser.connect(audioCtx.destination);
+                        speechSourceConnected = true;
+                    } catch(e) { console.warn('Audio context connect error:', e); }
+                }
+
+                speechAudio.src = file;
+                currentAudio = speechAudio;
+                
+                speechAudio.play().then(() => {
+                    speechAudio.onended = playNext;
+                }).catch(e => {
+                    console.warn("Failed to play", file, e);
+                    playNext();
+                });
+            };
+            playNext();
+        }
+
+        window.selectLanguage = (lang) => {
+            activeLanguage = lang;
+            updatePageLanguage(lang); // <--- Localize DOM text dynamically
+            bubblesContainer.style.display = 'none';
+            bgAudio.play().catch(e => console.warn('BGM blocked'));
+            
+            const prefix = lang === 'uk' ? 'V' : 'R';
+            const sequence = [`${prefix}1.mp3`, `${prefix}2.mp3`, `${prefix}2_1.mp3`];
+            
+            playAudioSequence(sequence, () => {
+                showDialog1();
+            });
+        };
+
+        window.toggleDialog = () => {
+            if (dialogWindow.style.display === 'none') {
+                dialogWindow.style.display = 'block';
+                dialogToggleBtn.style.display = 'none';
+            } else {
+                dialogWindow.style.display = 'none';
+                dialogToggleBtn.style.display = 'block';
+            }
+        };
+
+        function setDialogOptions(text, options) {
+            dialogWrapper.style.display = 'block';
+            dialogWindow.style.display = 'block';
+            dialogToggleBtn.style.display = 'none';
+            
+            document.getElementById('wish-form').style.display = 'none';
+            dialogText.innerHTML = text;
+            dialogOptions.innerHTML = '';
+            
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'dialog-btn';
+                btn.innerText = opt.label;
+                btn.onclick = () => {
+                    opt.action();
+                };
+                dialogOptions.appendChild(btn);
+            });
+        }
+
+        function showDialog1() {
+            const isUk = activeLanguage === 'uk';
+            setDialogOptions(isUk ? 'Продовжимо діалог?' : 'Shall we continue?', [
+                { label: isUk ? 'Так' : 'Yes', action: () => {
+                    dialogWrapper.style.display = 'none';
+                    const prefix = isUk ? 'V' : 'R';
+                    const answer = isUk ? 'V5' : 'R5';
+                    playAudioSequence([`${prefix}3.mp3`, `vidpovyd0_${answer}.mp3`], showDialog2);
+                }},
+                { label: isUk ? 'Ні' : 'No', action: () => {
+                    showDialog2();
+                }}
+            ]);
+        }
+
+        function showDialog2() {
+            const isUk = activeLanguage === 'uk';
+            setDialogOptions(isUk ? 'Що тебе цікавить?' : 'What interests you?', [
+                { label: isUk ? 'Розповісти про автора' : 'About the author', action: () => {
+                    dialogWrapper.style.display = 'none';
+                    const prefix = isUk ? 'V' : 'R';
+                    playAudioSequence([`${prefix}4.mp3`], showDialog3);
+                }},
+                { label: isUk ? 'Розповісти про проект' : 'About the project', action: () => {
+                    dialogWrapper.style.display = 'none';
+                    const answer = isUk ? 'V6' : 'R6';
+                    playAudioSequence([`vidpovyd1_${answer}.mp3`], showDialog3);
+                }},
+                { label: isUk ? 'Розповісти цікавий факт' : 'Interesting fact', action: showFactMenu }
+            ]);
+        }
+
+        function showFactMenu() {
+            const isUk = activeLanguage === 'uk';
+            setDialogOptions(isUk ? 'Обери тему:' : 'Choose a topic:', [
+                { label: isUk ? 'Кози' : 'Goats', action: () => playFact('kozy') },
+                { label: isUk ? 'Голуби' : 'Pigeons', action: () => playFact('holuby') },
+                { label: isUk ? 'Пилосос' : 'Vacuum cleaner', action: () => playFact('pylesos') },
+                { label: isUk ? 'Видра' : 'Otter', action: () => playFact('vydra') },
+                { label: isUk ? 'Качення' : 'Duckling', action: () => playFact('kachennya') }
+            ]);
+        }
+
+        function playFact(factName) {
+            dialogWrapper.style.display = 'none';
+            const suffix = activeLanguage === 'uk' ? 'V' : 'R';
+            playAudioSequence([`${factName}${suffix}.mp3`], showDialog3);
+        }
+
+        function showDialog3() {
+            const prefix = activeLanguage === 'uk' ? 'V' : 'R';
+            playAudioSequence([`str2_ili_pobazhannya_${prefix}.mp3`], () => {
+                const isUk = activeLanguage === 'uk';
+                setDialogOptions(isUk ? 'Що робимо далі?' : 'What next?', [
+                    { label: isUk ? 'Перейти на сторінку 2' : 'Go to page 2', action: () => {
+                        triggerTransition('page-2', () => showPage2Dialog());
+                    }},
+                    { label: isUk ? 'Залишити побажання' : 'Leave a wish', action: () => {
+                        dialogOptions.innerHTML = '';
+                        dialogText.innerText = isUk ? 'Напишіть Дмитру:' : 'Write to Dmytro:';
+                        document.getElementById('wish-form').style.display = 'block';
+                    }}
+                ]);
+            });
+        }
+
+        function showPage2Dialog() {
+            const isUk = activeLanguage === 'uk';
+            setDialogOptions(isUk ? 'Хаб проекту' : 'Project Hub', [
+                { label: isUk ? 'Повернутись на 1 сторінку' : 'Back to page 1', action: () => {
+                    triggerTransition('page-1', () => showDialog3());
+                }},
+                { label: isUk ? 'Переход на сторінку 3' : 'Go to page 3', action: () => {
+                    triggerTransition('page-3', () => showPage3Dialog());
+                }}
+            ]);
+        }
+
+        function showPage3Dialog() {
+            const isUk = activeLanguage === 'uk';
+            setDialogOptions(isUk ? 'Кімната відпочинку' : 'Relax Room', [
+                { label: isUk ? 'Повернутись на сторінку 2' : 'Back to page 2', action: () => {
+                    triggerTransition('page-2', () => showPage2Dialog());
+                }},
+                { label: isUk ? 'Повернутись на сторінку 1' : 'Back to page 1', action: () => {
+                    triggerTransition('page-1', () => showDialog3());
+                }},
+                { label: isUk ? 'Танці' : 'Dances', action: () => {
+                    setDialogOptions(isUk ? 'Обери танець:' : 'Choose a dance:', [
+                        { label: isUk ? 'Танок 1' : 'Dance 1', action: () => { dialogWrapper.style.display = 'none'; playVRMA('tanok_1.vrma', showPage3Dialog); } },
+                        { label: isUk ? 'Танок 2' : 'Dance 2', action: () => { dialogWrapper.style.display = 'none'; playVRMA('dvigenie2.vrma', showPage3Dialog); } },
+                        { label: isUk ? 'Танок 3' : 'Dance 3', action: () => { dialogWrapper.style.display = 'none'; playVRMA('tanok_3.vrma', showPage3Dialog); } }
+                    ]);
+                }}
+            ]);
+        }
+
+        function playVRMA(url, onDone) {
+            const loader = new GLTFLoader();
+            loader.register((parser) => new THREE_VRM_ANIMATION.VRMAnimationLoaderPlugin(parser));
+            loader.load(url, (gltf) => {
+                if(!currentVrm) return;
+                const vrmAnimations = gltf.userData.vrmAnimations;
+                if(vrmAnimations && vrmAnimations.length > 0) {
+                    const clip = THREE_VRM_ANIMATION.createVRMAnimationClip(vrmAnimations[0], currentVrm);
+                    
+                    // Fix memory leak: uncache old clip before playing new one
+                    if (currentAction) {
+                        currentAction.stop();
+                        mixer.uncacheClip(currentAction.getClip());
+                    }
+                    mixer.stopAllAction();
+                    
+                    currentAction = mixer.clipAction(clip);
+                    currentAction.play();
+                    
+                    const duration = clip.duration * 1000;
+                    setTimeout(() => { if(onDone) onDone(); }, duration);
+                } else {
+                    if(onDone) onDone();
+                }
+            }, undefined, (e) => {
+                console.warn("Animation load error", e);
+                setTimeout(() => { if(onDone) onDone(); }, 3000);
+            });
+        }
+
+        function triggerTransition(targetPageId, onComplete) {
+            if (isTransitioning) return;
+            isTransitioning = true;
+            
+            document.querySelectorAll('.page.active').forEach(p => {
+                p.style.opacity = '0';
+                p.style.transition = 'opacity 0.5s ease-out';
+            });
+            
+            vrmContainer.style.opacity = 0;
+            dialogWrapper.style.display = 'none';
+            document.getElementById('css-bg').style.display = 'none';
+
+            overlayVideo.style.display = 'block';
+            overlayVideo.src = 'portal.mp4';
+
+            const doSwitch = () => {
+                document.querySelectorAll('.page').forEach(p => {
+                    p.classList.remove('active');
+                    p.style.opacity = '';
+                    p.style.transition = '';
+                });
+                document.getElementById(targetPageId).classList.add('active');
+
+                if (targetPageId === 'page-3') {
+                    bgVideo.src = 'fon.mp4';
+                    bgVideo.style.display = 'block';
+                    bgVideo.play().catch(e => console.warn('bgVideo fallback', e));
+                    vrmContainer.classList.add('page3-mode');
+                    dialogWrapper.classList.add('page3-mode');
+                } else {
+                    bgVideo.style.display = 'none';
+                    bgVideo.pause();
+                    vrmContainer.classList.remove('page3-mode');
+                    dialogWrapper.classList.remove('page3-mode');
+                    if (targetPageId === 'page-1') {
+                        document.getElementById('css-bg').style.display = 'block';
+                    }
+                }
+
+                overlayVideo.style.display = 'none';
+                vrmContainer.style.opacity = 1;
+                isTransitioning = false;
+                
+                if (onComplete) onComplete();
+            };
+
+            // Fix Transition Deadlock
+            overlayVideo.onended = () => {
+                overlayVideo.src = 'perehod.mp4';
+                overlayVideo.play().then(() => {
+                    overlayVideo.onended = doSwitch;
+                }).catch(e => {
+                    console.warn('transition video error', e);
+                    doSwitch();
+                });
+            };
+
+            overlayVideo.play().catch(e => {
+                console.warn('portal video error (autoplay prevented?)', e);
+                overlayVideo.onended = null;
+                doSwitch(); // Fallback switch immediately if blocked
+            });
+        }
+
+        window.closeWishForm = () => {
+            document.getElementById('wish-form').style.display = 'none';
+            showDialog3();
+        };
+
+        window.sendWish = async () => {
+            const t = i18n[activeLanguage] || i18n['uk'];
+            const email = document.getElementById('wish-email').value.trim();
+            const text = document.getElementById('wish-text').value.trim();
+            if (!email || !text) {
+                showCustomAlert(t.alert_fill);
+                return;
+            }
+            
+            const btn = document.getElementById('wish-btn-send');
+            const originalText = btn.innerText;
+            btn.innerText = t.alert_sending;
+            
+            try {
+                const resp = await fetch(FORMBOLD_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, message: text, sender: "VRM Dialog" })
+                });
+                if (resp.ok) {
+                    showCustomAlert(t.alert_success);
+                    closeWishForm();
+                } else {
+                    showCustomAlert(t.alert_error);
+                }
+            } catch(e) {
+                console.error("Wish API Error:", e); // Fix silent failure
+                showCustomAlert(t.alert_network);
+            } finally {
+                btn.innerText = originalText;
+            }
+        };
+    </script>
+</body>
+</html>
